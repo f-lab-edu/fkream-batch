@@ -1,0 +1,38 @@
+{
+  "groups": [
+    {
+      "name": "datasource.external",
+      "type": "com.flab.fkreambatch.dataSource.ExternalDataSource",
+      "sourceType": "com.flab.fkreambatch.dataSource.ExternalDataSource"
+    },
+    {
+      "name": "datasource.statistics",
+      "type": "javax.sql.DataSource",
+      "sourceType": "com.flab.fkreambatch.config.StatisticsDataSourceConfig",
+      "sourceMethod": "statisticsDataSource()"
+    }
+  ],
+  "properties": [
+    {
+      "name": "datasource.external.driver-class-name",
+      "type": "java.lang.String",
+      "sourceType": "com.flab.fkreambatch.dataSource.ExternalDataSource"
+    },
+    {
+      "name": "datasource.external.jdbc-url",
+      "type": "java.lang.String",
+      "sourceType": "com.flab.fkreambatch.dataSource.ExternalDataSource"
+    },
+    {
+      "name": "datasource.external.password",
+      "type": "java.lang.String",
+      "sourceType": "com.flab.fkreambatch.dataSource.ExternalDataSource"
+    },
+    {
+      "name": "datasource.external.username",
+      "type": "java.lang.String",
+      "sourceType": "com.flab.fkreambatch.dataSource.ExternalDataSource"
+    }
+  ],
+  "hints": []
+}
