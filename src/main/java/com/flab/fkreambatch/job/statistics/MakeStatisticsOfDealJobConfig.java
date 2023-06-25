@@ -1,12 +1,11 @@
 package com.flab.fkreambatch.job.statistics;
 
 
-import com.flab.fkreambatch.Dto.DealDto;
-import com.flab.fkreambatch.entity.DealStatisticsEntity;
+import com.flab.fkreambatch.kafka.DealStatisticsService;
 import com.flab.fkreambatch.repository.DealStatisticsRepository;
-import java.time.LocalDate;
-import java.util.List;
+
 import javax.sql.DataSource;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -25,22 +24,13 @@ import org.springframework.jdbc.core.SingleColumnRowMapper;
 
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class MakeStatisticsOfDealJobConfig {
 
     private final static int CHUNK_SIZE = 5;
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
-    private final DealStatisticsRepository dealStatisticsRepository;
-    private final DataSource dataSource;
-
-    public MakeStatisticsOfDealJobConfig(JobBuilderFactory jobBuilderFactory,
-        StepBuilderFactory stepBuilderFactory, DealStatisticsRepository dealStatisticsRepository,
-        @Qualifier("fkreamDataSource") DataSource dataSource) {
-        this.jobBuilderFactory = jobBuilderFactory;
-        this.stepBuilderFactory = stepBuilderFactory;
-        this.dealStatisticsRepository = dealStatisticsRepository;
-        this.dataSource = dataSource;
-    }
+    private final DealStatisticsService dealStatisticsService;
 
     @Bean
     public Job makeStatisticsOfDealJob() throws Exception {
@@ -53,40 +43,9 @@ public class MakeStatisticsOfDealJobConfig {
     public Step makeStatisticsDealStep() throws Exception {
         return this.stepBuilderFactory.get("makeStatisticsDealStep")
             .allowStartIfComplete(true)
-            .tasklet(new Tasklet() {
-                @Override
-                public RepeatStatus execute(StepContribution contribution,
-                    ChunkContext chunkContext) throws Exception {
-                    JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-                    List<Integer> itemIds = jdbcTemplate.query("select id from item order by id",
-                        new SingleColumnRowMapper<>());
-
-                    LocalDate date = LocalDate.now().minusDays(1);
-
-                    for (int i = 0; i<itemIds.size(); i++) {
-                        Integer itemId = itemIds.get(i);
-                        if (itemId == 1) {
-                            log.info("itemId");
-                        }
-                        List<DealDto> dealDtos = jdbcTemplate.query(
-                            "select * from deal where item_id = ? and status = 'COMPLETION' and deal_type = 'PURCHASE' and trading_day = ? ",
-                            new BeanPropertyRowMapper<>(DealDto.class), itemId, date);
-
-                        if (dealDtos.size() == 0) {
-                            continue;
-                        }
-
-                        int average = (int)dealDtos.stream().mapToInt(dealDto -> dealDto.getPrice())
-                            .average().getAsDouble();
-
-
-                        DealStatisticsEntity dealStatisticsEntity = DealStatisticsEntity.builder().itemId(Long.valueOf(itemId))
-                            .date(date).averagePrice(average).build();
-
-                        dealStatisticsRepository.save(dealStatisticsEntity);
-                    }
-                    return RepeatStatus.FINISHED;
-                }
+            .tasklet((contribution, chunkContext) -> {
+                dealStatisticsService.createDealStatistics();
+                return RepeatStatus.FINISHED;
             })
             .build();
     }
