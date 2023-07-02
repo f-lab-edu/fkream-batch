@@ -16,7 +16,23 @@ spring:
   batch:
     jdbc:
       initialize-schema: always
-
+    job:
+      enabled: false
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      authentication-database: admin
+      database: fkream
+      username: admin
+      password: admin
+      auto-index-creation: true
 kafka:
-  bootstrapAddress: 49.50.173.232:9092
-  group-id: fkream-batch
+  bootstrapAddress: 101.101.210.178:9092, 101.101.210.178:9093, 101.101.210.178:9094
+  group-id: fkream_batch
+  topic:
+    search-log: search_log
+    complete-deal-price: complete_deal_price
+
+server:
+  port: 9000

@@ -26,10 +26,8 @@ class MakeStatisticsOfDealJobConfigTest {
 
     @Test
     void makeStatisticsOfDealTest() throws Exception {
-
         JobExecution jobExecution = jobLauncherTestUtils.launchStep(
             "makeStatisticsDealStep");
         Assertions.assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
-
     }
 }
