@@ -3,6 +3,7 @@ package com.flab.fkreambatch.kafka;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +45,17 @@ public class KafkaConsumeConfig {
             = new ConcurrentKafkaListenerContainerFactory<>();
         listenerContainerFactory.setConsumerFactory(consumerFactory());
         return listenerContainerFactory;
+    }
+
+    public Properties createConsumerProperty() {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", bootstrapServers);
+        props.put("group.id", groupId);
+        props.put("enable.auto.commit", "true");
+        props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+        props.put("value.deserializer", JsonDeserializer.class);
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        return props;
     }
 
 }

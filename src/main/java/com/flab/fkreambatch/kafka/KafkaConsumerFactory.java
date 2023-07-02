@@ -10,38 +10,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class KafkaConsumerFactory {
 
-    @Value("${kafka.bootstrapAddress}")
-    private String bootstrapServers;
-    @Value("${kafka.group-id}")
-    private String groupId;
 
+    private final KafkaConsumeConfig kafkaConsumeConfig;
 
     public KafkaConsumer<Object, Object> createDealStatisticsConsumer() {
-        Properties props = createDealStatisticsConsumerProperty();
+        Properties props = kafkaConsumeConfig.createConsumerProperty();
         KafkaConsumer<Object, Object> kafkaConsumer = new KafkaConsumer<>(props);
         List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(KafkaTopic.DEAL);
         assignTopicPartitions(kafkaConsumer, partitionInfos, KafkaTopic.DEAL);
 
         Map<TopicPartition, OffsetAndTimestamp> offsets = getOffsetsForPrevious(
-            kafkaConsumer, partitionInfos, KafkaTopic.DEAL, getPreviousDayStartMillis());
+            kafkaConsumer, partitionInfos, KafkaTopic.DEAL, getPreviousDayStartMillis(1));
 
         setConsumerOffsetsByTimestamp(kafkaConsumer, offsets);
         return kafkaConsumer;
     }
 
     public KafkaConsumer<Object, Object> createSearchLogConsumer() {
-        Properties props = createDealStatisticsConsumerProperty();
+        Properties props = kafkaConsumeConfig.createConsumerProperty();
         KafkaConsumer<Object, Object> kafkaConsumer = new KafkaConsumer<>(props);
         List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(KafkaTopic.SEARCH_LOG);
         assignTopicPartitions(kafkaConsumer, partitionInfos, KafkaTopic.SEARCH_LOG);
@@ -55,6 +52,7 @@ public class KafkaConsumerFactory {
 
     private void setConsumerOffsetsByTimestamp(KafkaConsumer<Object, Object> kafkaConsumer,
         Map<TopicPartition, OffsetAndTimestamp> offsets) {
+
         for (Entry<TopicPartition, OffsetAndTimestamp> entry : offsets.entrySet()) {
             TopicPartition topicPartition = entry.getKey();
             OffsetAndTimestamp offsetAndTimestamp = entry.getValue();
@@ -68,20 +66,21 @@ public class KafkaConsumerFactory {
     private Map<TopicPartition, OffsetAndTimestamp> getOffsetsForPrevious(
         KafkaConsumer<Object, Object> kafkaConsumer, List<PartitionInfo> partitionInfos,
         String topic, long timestamp) {
+
         HashMap<TopicPartition, Long> timestamps = new HashMap<>();
         for (PartitionInfo partitionInfo : partitionInfos) {
             timestamps.put(new TopicPartition(topic, partitionInfo.partition()), timestamp);
         }
-        Map<TopicPartition, OffsetAndTimestamp> offsets = kafkaConsumer.offsetsForTimes(
+
+        return kafkaConsumer.offsetsForTimes(
             timestamps);
-        return offsets;
     }
 
-    private long getPreviousDayStartMillis() {
+    private long getPreviousDayStartMillis(int day) {
         return LocalDate
             .now()
             .atStartOfDay()
-            .minusDays(1)
+            .minusDays(day)
             .atZone(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli();
@@ -104,17 +103,5 @@ public class KafkaConsumerFactory {
             topicPartitions.add(new TopicPartition(topic, partitionInfo.partition()));
         }
         kafkaConsumer.assign(topicPartitions);
-    }
-
-
-    private Properties createDealStatisticsConsumerProperty() {
-        Properties props = new Properties();
-        props.put("bootstrap.servers", bootstrapServers);
-        props.put("group.id", groupId);
-        props.put("enable.auto.commit", "true");
-        props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        props.put("value.deserializer", JsonDeserializer.class);
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
-        return props;
     }
 }
