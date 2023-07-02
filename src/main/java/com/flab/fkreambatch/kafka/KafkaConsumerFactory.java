@@ -1,7 +1,9 @@
 package com.flab.fkreambatch.kafka;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,17 +25,29 @@ public class KafkaConsumerFactory {
     private String bootstrapServers;
     @Value("${kafka.group-id}")
     private String groupId;
-    @Value("${kafka.topic.complete-deal-price}")
-    private String topic;
+
 
     public KafkaConsumer<Object, Object> createDealStatisticsConsumer() {
         Properties props = createDealStatisticsConsumerProperty();
         KafkaConsumer<Object, Object> kafkaConsumer = new KafkaConsumer<>(props);
-        List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(topic);
-        assignTopicPartitions(kafkaConsumer, partitionInfos);
+        List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(KafkaTopic.DEAL);
+        assignTopicPartitions(kafkaConsumer, partitionInfos, KafkaTopic.DEAL);
 
-        Map<TopicPartition, OffsetAndTimestamp> offsets = getOffsetsForPreviousDay(
-            kafkaConsumer, partitionInfos);
+        Map<TopicPartition, OffsetAndTimestamp> offsets = getOffsetsForPrevious(
+            kafkaConsumer, partitionInfos, KafkaTopic.DEAL, getPreviousDayStartMillis());
+
+        setConsumerOffsetsByTimestamp(kafkaConsumer, offsets);
+        return kafkaConsumer;
+    }
+
+    public KafkaConsumer<Object, Object> createSearchLogConsumer() {
+        Properties props = createDealStatisticsConsumerProperty();
+        KafkaConsumer<Object, Object> kafkaConsumer = new KafkaConsumer<>(props);
+        List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(KafkaTopic.SEARCH_LOG);
+        assignTopicPartitions(kafkaConsumer, partitionInfos, KafkaTopic.SEARCH_LOG);
+
+        Map<TopicPartition, OffsetAndTimestamp> offsets = getOffsetsForPrevious(
+            kafkaConsumer, partitionInfos, KafkaTopic.SEARCH_LOG, getPreviousHoursStartMillis(1));
 
         setConsumerOffsetsByTimestamp(kafkaConsumer, offsets);
         return kafkaConsumer;
@@ -51,10 +65,10 @@ public class KafkaConsumerFactory {
         }
     }
 
-    private Map<TopicPartition, OffsetAndTimestamp> getOffsetsForPreviousDay(
-        KafkaConsumer<Object, Object> kafkaConsumer, List<PartitionInfo> partitionInfos) {
+    private Map<TopicPartition, OffsetAndTimestamp> getOffsetsForPrevious(
+        KafkaConsumer<Object, Object> kafkaConsumer, List<PartitionInfo> partitionInfos,
+        String topic, long timestamp) {
         HashMap<TopicPartition, Long> timestamps = new HashMap<>();
-        long timestamp = getPreviousDayStartMillis();
         for (PartitionInfo partitionInfo : partitionInfos) {
             timestamps.put(new TopicPartition(topic, partitionInfo.partition()), timestamp);
         }
@@ -73,8 +87,18 @@ public class KafkaConsumerFactory {
             .toEpochMilli();
     }
 
+    private long getPreviousHoursStartMillis(int Hours) {
+        return LocalDateTime
+            .now()
+            .truncatedTo(ChronoUnit.HOURS)
+            .minusHours(Hours)
+            .atZone(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli();
+    }
+
     private void assignTopicPartitions(KafkaConsumer<Object, Object> kafkaConsumer,
-        List<PartitionInfo> partitionInfos) {
+        List<PartitionInfo> partitionInfos, String topic) {
         List<TopicPartition> topicPartitions = new ArrayList<>();
         for (PartitionInfo partitionInfo : partitionInfos) {
             topicPartitions.add(new TopicPartition(topic, partitionInfo.partition()));
