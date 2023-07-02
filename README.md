@@ -16,4 +16,4 @@ fkream-batch는 [FKREAM](https://github.com/f-lab-edu/FKREAM)에서 생성한 �
 
 ## 소프트웨어 아키텍처
 
-![img.png](img.png)
+![image](https://github.com/f-lab-edu/fkream-batch/assets/79684851/5822a1c0-2514-4ed3-922b-a7b0fbff48a2)
