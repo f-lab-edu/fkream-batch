@@ -22,58 +22,75 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class SearchLogService {
 
+    private static final Duration POLLING_DURATION = Duration.ofMillis(100);
+
     private final SearchRepository searchRepository;
     private final KafkaConsumerFactory consumerFactory;
 
     public void makeRankingOfRealTimeSearchTerms() {
-        KafkaConsumer<Object, Object> kafkaConsumer = consumerFactory.createDealStatisticsConsumer();
-        Map<String, Integer> countDataByTerms = new HashMap<>();
-
-        boolean isContinue = true;
-        try (kafkaConsumer) {
-            while (isContinue) {
-                ConsumerRecords<Object, Object> records = kafkaConsumer.poll(
-                    Duration.ofMillis(100));
-                if (records.isEmpty()) {
-                    break;
-                }
-                isContinue = makeCountDataByTerm(countDataByTerms, isContinue, records);
-            }
+        try (KafkaConsumer<Object, Object> kafkaConsumer = consumerFactory.createSearchLogConsumer()) {
+            Map<String, Integer> termCounts = countTermsFromStream(kafkaConsumer);
+            saveSearchDocuments(termCounts);
         } catch (Exception e) {
-            log.error(e.getMessage());
+            log.error("Error during processing search terms", e);
             throw new RuntimeException(e);
         }
-        saveSearchDocument(countDataByTerms);
     }
 
-    private void saveSearchDocument(Map<String, Integer> countDataByTerms) {
-        for (Entry<String, Integer> entry : countDataByTerms.entrySet()) {
-            SearchDocument searchDocument = SearchDocument.builder()
-                .searchWord(entry.getKey())
-                .searchCount(entry.getValue())
-                .createdAt(LocalDateTime.now().truncatedTo(ChronoUnit.HOURS)).build();
-            searchRepository.save(searchDocument);
-        }
-    }
+    private Map<String, Integer> countTermsFromStream(KafkaConsumer<Object, Object> kafkaConsumer) {
+        Map<String, Integer> termCounts = new HashMap<>();
 
-    private boolean makeCountDataByTerm(Map<String, Integer> countDataByTerms, boolean isContinue,
-        ConsumerRecords<Object, Object> records) {
-        LocalDateTime currentHour = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS);
-        for (ConsumerRecord<Object, Object> record : records) {
-            LocalDateTime createdTimeOfRecord = LocalDateTime.ofInstant(Instant.ofEpochMilli(record.timestamp()), ZoneId.systemDefault());
-            if (currentHour.isAfter(createdTimeOfRecord)) {
-                 String term = (String)record.value();
-                if (countDataByTerms.containsKey(term)) {
-                    countDataByTerms.put(term, countDataByTerms.get(term)+1);
-                } else {
-                    countDataByTerms.put(term, 1);
-                }
-            }
-            else {
-                isContinue = false;
+        boolean shouldContinue = true;
+        while (shouldContinue) {
+            ConsumerRecords<Object, Object> records = kafkaConsumer.poll(POLLING_DURATION);
+            if (records.isEmpty()) {
                 break;
             }
+            shouldContinue = accumulateTermCounts(termCounts, records);
         }
-        return isContinue;
+        return termCounts;
     }
+
+    private boolean accumulateTermCounts(Map<String, Integer> termCounts, ConsumerRecords<Object, Object> records) {
+        LocalDateTime currentHour = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS);
+
+        for (ConsumerRecord<Object, Object> record : records) {
+            LocalDateTime recordCreatedTime = convertTimestampToLocalDateTime(record.timestamp());
+
+            if (isRecordOutOfTimeRange(currentHour, recordCreatedTime)) {
+                updateTermCount(termCounts, (String) record.value());
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private LocalDateTime convertTimestampToLocalDateTime(long timestamp) {
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
+    }
+
+    private boolean isRecordOutOfTimeRange(LocalDateTime currentHour, LocalDateTime recordCreatedTime) {
+        return currentHour.isAfter(recordCreatedTime);
+    }
+
+    private void updateTermCount(Map<String, Integer> termCounts, String term) {
+        termCounts.put(term, termCounts.getOrDefault(term, 0) + 1);
+    }
+
+    private void saveSearchDocuments(Map<String, Integer> termCounts) {
+        LocalDateTime createdAt = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS);
+        termCounts.forEach((term, count) -> saveSearchDocument(term, count, createdAt));
+    }
+
+    private void saveSearchDocument(String term, Integer count, LocalDateTime createdAt) {
+        SearchDocument searchDocument = SearchDocument.builder()
+            .searchWord(term)
+            .searchCount(count)
+            .createdAt(createdAt)
+            .build();
+
+        searchRepository.save(searchDocument);
+    }
+
 }
