@@ -1,6 +1,6 @@
 # fkream-batch
 
-fkream-batch는 [FKREAM](https://github.com/f-lab-edu/FKREAM)에서 생성한 데이터를 배치 처리하기 위해 Kafka, Spring Batch를
+fkream-batch는 [**FKREAM**](https://github.com/f-lab-edu/FKREAM)에서 생성한 데이터를 배치 처리하기 위해 Kafka, Spring Batch를
 활용하는 것이 목표입니다.
 
 ## 주요 기능
