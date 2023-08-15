@@ -10,9 +10,9 @@ fkream-batch는 [**FKREAM**](https://github.com/f-lab-edu/FKREAM)에서 생성�
 
 ## 설명
 
-- 개발기간 : 2023.06.01 ~
-- 백엔드 : Java 11, SpringBoot, JPA, SpringBatch, Kafka, MySQL, Elastic Search
-- Tool : IntelliJ, Gradle
+- **개발기간** : 2023.06.01 ~ 2023.07.06
+- **백엔드**  : Java 11, SpringBoot, JPA, SpringBatch, Kafka, MySQL, Elastic Search
+- **Tool**  : IntelliJ, Gradle
 
 ## 소프트웨어 아키텍처
 
